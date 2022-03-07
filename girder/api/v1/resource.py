@@ -109,28 +109,32 @@ class Resource(BaseResource):
                'path starting with either "/user/[user name]", for a user\'s '
                'resources or "/collection/[collection name]", for resources '
                'under a collection.')
+        .param('flatten', 'Flatten paths of single-file items.',
+               required=False, dataType='boolean', default=False)
         .errorResponse('Path is invalid.')
         .errorResponse('Path refers to a resource that does not exist.')
         .errorResponse('Read access was denied for the resource.', 403)
     )
-    def lookup(self, path):
-        return path_util.lookUpPath(path, self.getCurrentUser())['document']
+    def lookup(self, path, flatten):
+        return path_util.lookUpPath(path, self.getCurrentUser(), flatten=flatten)['document']
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get path of a resource.')
         .param('id', 'The ID of the resource.', paramType='path')
         .param('type', 'The type of the resource (item, file, etc.).')
+        .param('flatten', 'The path of single-file items is flattened.',
+               required=False, dataType='boolean', default=False)
         .errorResponse('ID was invalid.')
         .errorResponse('Invalid resource type.')
         .errorResponse('Read access was denied for the resource.', 403)
     )
-    def path(self, id, type):
+    def path(self, id, type, flatten=False):
         user = self.getCurrentUser()
         doc = self._getResource(id, type)
         if doc is None:
             raise RestException('Invalid resource id.')
-        return path_util.getResourcePath(type, doc, user=user)
+        return path_util.getResourcePath(type, doc, user=user, flatten=flatten)
 
     @access.public(scope=TokenScope.DATA_READ, cookie=True)
     @autoDescribeRoute(

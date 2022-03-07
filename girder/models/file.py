@@ -490,7 +490,8 @@ class File(acl_mixin.AccessControlMixin, Model):
         """
         mount = Setting().get(SettingKey.GIRDER_MOUNT_INFORMATION)
         if mount:
-            path = mount['path'].rstrip('/') + path_util.getResourcePath('file', file, force=True)
+            path = mount['path'].rstrip('/') + path_util.getResourcePath(
+                'file', file, force=True, flatten=mount.get('flatten', False))
             if not validate or os.path.exists(path):
                 return path
         if validate:

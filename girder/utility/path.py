@@ -7,6 +7,7 @@ from ..exceptions import AccessException, GirderException, ValidationException
 from ..exceptions import ResourcePathNotFound
 from .model_importer import ModelImporter
 from girder.models.collection import Collection
+from girder.models.item import Item
 from girder.models.user import User
 
 
@@ -106,7 +107,7 @@ def lookUpToken(token, parentType, parent):
         parentType, parent.get('name', parent.get('_id')), token))
 
 
-def lookUpPath(path, user=None, filter=True, force=False):
+def lookUpPath(path, user=None, filter=True, force=False, flatten=False):
     """
     Look up a resource in the data hierarchy by path.
 
@@ -116,6 +117,9 @@ def lookUpPath(path, user=None, filter=True, force=False):
     :type filter: bool
     :param force: if True, don't validate the access.
     :type force: bool
+    :param flatten: if True, items with a single file of the same name are
+        treated as that file rather than the item itself.
+    :type flatten: bool
     """
     path = path.lstrip('/')
     pathArray = split(path)
@@ -146,6 +150,10 @@ def lookUpPath(path, user=None, filter=True, force=False):
             document, model = lookUpToken(token, model, document)
             if not force:
                 ModelImporter.model(model).requireAccess(document, user)
+        if flatten and model == 'item':
+            files = list(Item().childFiles(document, limit=2))
+            if len(files) == 1 and files[0]['name'] == document['name']:
+                document, model = files[0], 'file'
     except (ValidationException, AccessException):
         # We should not distinguish the response between access and validation errors so that
         # adversarial users cannot discover the existence of data they don't have access to by
@@ -180,7 +188,7 @@ def getResourceName(type, doc):
         raise GirderException('Invalid resource type.')
 
 
-def getResourcePath(type, doc, user=None, force=False):
+def getResourcePath(type, doc, user=None, force=False, flatten=False):
     """
     Get the path for a resource.
 
@@ -192,6 +200,9 @@ def getResourcePath(type, doc, user=None, force=False):
     :type user: dict or None
     :param force: if True, don't validate the access.
     :type force: bool
+    :param flatten: if True, a file in an item with a single file of the same
+        name are resolved within the parent folder rather than within the item.
+    :type flatten: bool
     :return: the path to the resource.
     :rtype: str
     """
@@ -211,6 +222,10 @@ def getResourcePath(type, doc, user=None, force=False):
             break
         doc = ModelImporter.model(parentModel).load(
             id=parentId, user=user, level=AccessType.READ, force=force)
+        if flatten and type == 'file':
+            files = list(Item().childFiles(doc, limit=2))
+            if len(files) == 1 and path[0] == getResourceName('item', doc):
+                path = []
         type = parentModel
     path.insert(0, type)
     return '/' + join(path)
